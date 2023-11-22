@@ -220,3 +220,21 @@ kubectl create ns $NAMESPACE
 ```bash	
 kubectl apply -f ./src/spring-petclinic-config-server/k8s/configmap.yaml -n $NAMESPACE
 ```
+
+#### Run deployment (manually)
+
+```bash
+./deploy-in-aks.sh $MYACR.azurecr.io $(git rev-parse HEAD) spring-petclinic
+```
+
+#### Get service IP for the admin server
+
+```bash
+export ADMIN_SVCIP=$(kubectl get svc spring-petclinic-admin-server -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+```
+
+#### Get service IP for the api gateway
+
+```bash
+export APIGATEWAY_SVCIP=$(kubectl get svc api-gateway -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+```

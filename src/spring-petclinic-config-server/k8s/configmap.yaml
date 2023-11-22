@@ -4,4 +4,4 @@ metadata:
   name: config-server
 data:
   # property-like keys; each key maps to a simple value
-  CONFIG_SERVER_URL: "http://config-server:8888"
+  CONFIG_SERVER_URL: "http://spring-petclinic-config-server:8888"

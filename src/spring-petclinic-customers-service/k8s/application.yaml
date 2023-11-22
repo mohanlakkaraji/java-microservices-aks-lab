@@ -2,21 +2,21 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: #appname#
-  name: #appname#
+    app: spring-petclinic-customers-service
+  name: spring-petclinic-customers-service
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: #appname#
+      app: spring-petclinic-customers-service
   template:
     metadata:
       labels:
-        app: #appname#
+        app: spring-petclinic-customers-service
     spec:
       containers:
       - image: #image#
-        name: #appname#
+        name: spring-petclinic-customers-service
         env:
         - name: "CONFIG_SERVER_URL"
           valueFrom:
@@ -59,13 +59,13 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: #appname#
-  name: #appname#
+    app: spring-petclinic-customers-service
+  name: spring-petclinic-customers-service
 spec:
   ports:
   - port: 8080
     protocol: TCP
     targetPort: 8080
   selector:
-    app: #appname#
+    app: spring-petclinic-customers-service
   type: ClusterIP
