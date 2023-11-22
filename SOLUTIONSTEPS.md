@@ -104,12 +104,12 @@ git push
 In  [src/spring-petclinic-config-server/src/main/resources/application.yml](./src/spring-petclinic-config-server/src/main/resources/application.yml) modify the following:
 
 ```bash
-uri: https://github.com/<your-github-username>/java-microservices-aks-lab-config
-username: <your-github-username>
-password: <your-pat>
+uri: ${CONFIG_REPO}
+username: ${CONFIG_REPO_USER}
+password: ${CONFIG_REPO_PWD}
 ```
 
-NOTE: do not commit this change to the repo (as it contains your PAT)
+NOTE: These variables will be initialized later in the lab.
 
 ### Deploy Azure Database for MySQL Flexible Server
 
