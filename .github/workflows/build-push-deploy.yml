@@ -103,6 +103,6 @@ jobs:
         run: |
           IMAGE="${{ secrets.ACR_ENDPOINT}}\/spring-petclinic-config-server:latest"
           echo $IMAGE
-          sed -e 's/#image#/'$IMAGE'/g' -e \
+          sed -e 's!#image#!'$IMAGE'!g' -e \
             src/spring-petclinic-config-server/k8s/application.yaml \
             | kubectl apply -f - -n ${{ env.NAMESPACE}}
