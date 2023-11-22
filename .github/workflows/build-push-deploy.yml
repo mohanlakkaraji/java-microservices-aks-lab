@@ -81,10 +81,11 @@ jobs:
       - name: Apply application.yaml manifest
         run: |
           IMAGE="${{ secrets.ACR_ENDPOINT}}\/${{ matrix.dir }}:${{ env.APP_VERSION}}"
+          echo $IMAGE
           sed -e 's/#image#/'$IMAGE'/g' -e \
             's/#appname#/'${{ matrix.dir }}'/g' \
             src/$service/k8s/application.yaml \
-            | kubectl apply -f - -n $namespace
+            | kubectl apply -f - -n ${{ env.NAMESPACE}}
   deploy-config-server:
     needs: push
     runs-on: ubuntu-latest
@@ -101,6 +102,7 @@ jobs:
       - name: Apply application.yaml manifest
         run: |
           IMAGE="${{ secrets.ACR_ENDPOINT}}\/spring-petclinic-config-server:latest"
+          echo $IMAGE
           sed -e 's/#image#/'$IMAGE'/g' -e \
             src/spring-petclinic-config-server/k8s/application.yaml \
-            | kubectl apply -f - -n $namespace
+            | kubectl apply -f - -n ${{ env.NAMESPACE}}
