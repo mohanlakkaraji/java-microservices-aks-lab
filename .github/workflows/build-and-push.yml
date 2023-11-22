@@ -75,7 +75,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
       - name: Set up kubectl
-        uses: azure/kubectl@v1
+        uses: azure/setup-kubectl@v3
         with:
           version: 'latest'
       - name: Apply application.yaml manifest
