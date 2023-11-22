@@ -68,8 +68,7 @@ jobs:
                         "spring-petclinic-vets-service",
                         "spring-petclinic-visits-service",
                         "spring-petclinic-api-gateway",
-                        "spring-petclinic-admin-server",
-                        "spring-petclinic-config-server"
+                        "spring-petclinic-admin-server"
                      ] 
               }
     steps:
@@ -88,7 +87,7 @@ jobs:
         run: |
           IMAGE="${{ secrets.ACR_ENDPOINT }}/${{ matrix.dir }}:${{ env.APP_VERSION }}"
           sed -e 's!#image#!'$IMAGE'!g' \
-            -e 's!#appname#!'${{ matrix.dir }}'/g' \
+            -e 's!#appname#!'${{ matrix.dir }}'!g' \
             src/$service/k8s/application.yaml \
             | kubectl apply -f - -n ${{ env.NAMESPACE }}
             
