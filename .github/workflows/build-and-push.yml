@@ -15,9 +15,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      APP_VERSION: ${{ github.sha }}
-
     steps:
     - uses: actions/checkout@v2
     - name: Set up JDK 17
@@ -32,12 +29,18 @@ jobs:
   push: 
     needs: build
     runs-on: ubuntu-latest
+    env:
+      APP_VERSION: ${{ github.sha }}
     strategy:
       matrix: { 
                 dir: [  "spring-petclinic-customers-service",
                         "spring-petclinic-discovery-server",
                         "spring-petclinic-vets-service",
-                        "spring-petclinic-visits-service" ] 
+                        "spring-petclinic-visits-service",
+                        "spring-petclinic-api-gateway",
+                        "spring-petclinic-admin-server",
+                        "spring-petclinic-config-server"
+                     ] 
               }
     steps:
 
@@ -55,4 +58,3 @@ jobs:
           tags: ${{ secrets.ACR_ENDPOINT}}/${{ matrix.dir }}:${{ env.APP_VERSION}}
           build-args: |
             ARTIFACT_NAME=target/${{ matrix.dir }}-*.jar
-            APP_PORT=8080

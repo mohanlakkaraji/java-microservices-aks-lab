@@ -172,17 +172,20 @@ NOTE: this credentials will be removed later on
 
 ### Github actions
 
-#### Create Service Principal
+#### Get ACR credentials
+
+Enable admin user in ACR:
 
 ```bash
-export SP_NAME=sp-$APPNAME-$UNIQUEID
-export AZURE_CREDENTIALS=`az ad sp create-for-rbac --name $SP_NAME --role contributor \
-                        --scopes /subscriptions/$(az account show --query id --output tsv)/resourceGroups/$RESOURCE_GROUP \
-                        --json-auth`
-```	
+az acr update -n $MYACR --admin-enabled true -g $RESOURCE_GROUP
+```
 
-#### Create Github Secret
-
-Get the content of the AZURE_CREDENTIALS variable and create a new secret in your repo called AZURE_CREDENTIALS.
+And create 3 secrets in your repo with same name and values as the variables below:
 
 ```bash
+ACR_PASSWORD=$(az acr credential show -n $MYACR -g $RESOURCE_GROUP --query "passwords[0].value" -o tsv)
+ACR_USERNAME=$(az acr credential show -n $MYACR -g $RESOURCE_GROUP --query "username" -o tsv)
+ACR_ENDPOINT=$(az acr show -n $MYACR -g $RESOURCE_GROUP --query "loginServer" -o tsv)
+```
+
+
