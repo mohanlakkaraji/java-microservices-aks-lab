@@ -17,7 +17,9 @@ env:
   NAMESPACE: spring-petclinic
 
 jobs:
+
   push: 
+    if: false
     runs-on: ubuntu-latest
     strategy:
       matrix: { 
@@ -54,7 +56,9 @@ jobs:
         tags: ${{ secrets.ACR_ENDPOINT}}/${{ matrix.dir }}:${{ env.APP_VERSION}}
         build-args: |
           ARTIFACT_NAME=target/${{ matrix.dir }}-*.jar
+
   deploy:
+    if: false
     needs: deploy-config-server
     runs-on: ubuntu-latest
     strategy:
@@ -86,6 +90,7 @@ jobs:
             's/#appname#/'${{ matrix.dir }}'/g' \
             src/$service/k8s/application.yaml \
             | kubectl apply -f - -n ${{ env.NAMESPACE}}
+
   deploy-config-server:
     needs: push
     runs-on: ubuntu-latest
@@ -101,8 +106,8 @@ jobs:
           version: 'latest'
       - name: Apply application.yaml manifest
         run: |
-          IMAGE="${{ secrets.ACR_ENDPOINT}}\/spring-petclinic-config-server:latest"
+          IMAGE="acrpetclinic60b399.azurecr.io\/spring-petclinic-config-server:latest"
           echo $IMAGE
-          sed -e 's!#image#!'$IMAGE'!g' -e \
+          sed -e 's/#image#/'$IMAGE'/g' -e \
             src/spring-petclinic-config-server/k8s/application.yaml \
             | kubectl apply -f - -n ${{ env.NAMESPACE}}
