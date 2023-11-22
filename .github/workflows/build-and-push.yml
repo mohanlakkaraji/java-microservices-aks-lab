@@ -80,5 +80,7 @@ jobs:
           version: 'latest'
       - name: Apply application.yaml manifest
         run: |
-          sed -i 's|#appname#|${{ matrix.dir }}|g' src/${{ matrix.dir }}/k8s/application.yaml
+          IMAGE="${{ secrets.ACR_ENDPOINT}}\/${{ matrix.dir }}:${{ env.APP_VERSION}}"
+          sed -i 's/#image#/'"$IMAGE"'/g' src/${{ matrix.dir }}/k8s/application.yaml
+          sed -i 's/#appname#/${{ matrix.dir }}/g' src/${{ matrix.dir }}/k8s/application.yaml
           kubectl apply -f src/${{ matrix.dir }}/k8s/application.yaml -n ${{ env.NAMESPACE}}
