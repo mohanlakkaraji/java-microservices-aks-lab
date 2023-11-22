@@ -30,6 +30,7 @@ jobs:
       run: mvn -B package --file src/pom.xml
 
   push: 
+    needs: build
     runs-on: ubuntu-latest
     strategy:
       matrix: { 
