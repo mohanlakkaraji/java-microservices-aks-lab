@@ -40,7 +40,7 @@ jobs:
       with:
         context: src/spring-petclinic-vets-service
         push: true
-        tags: ${{ env.ACR_ENDPOINT}}/spring-petclinic-vets-service:${{ env.APP_VERSION}}
+        tags: ${{ secrets.ACR_ENDPOINT}}/spring-petclinic-vets-service:${{ env.APP_VERSION}}
         build-args: |
           ARTIFACT_NAME=target/spring-petclinic-vets-service-*.jar
           APP_PORT=8080
