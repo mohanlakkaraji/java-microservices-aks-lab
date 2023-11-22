@@ -99,7 +99,7 @@ git commit -m "Initial commit"
 git push
 ```
 
-#### Add new config repo to the app config server
+#### Add new config repo to the app config server (variables)
 
 In  [src/spring-petclinic-config-server/src/main/resources/application.yml](./src/spring-petclinic-config-server/src/main/resources/application.yml) modify the following:
 
@@ -107,7 +107,6 @@ In  [src/spring-petclinic-config-server/src/main/resources/application.yml](./sr
 uri: https://github.com/<your-github-username>/java-microservices-aks-lab-config
 username: <your-github-username>
 password: <your-pat>
-default-label: main
 ```
 
 NOTE: do not commit this change to the repo (as it contains your PAT)
@@ -187,10 +186,6 @@ ACR_PASSWORD=$(az acr credential show -n $MYACR -g $RESOURCE_GROUP --query "pass
 ACR_USERNAME=$(az acr credential show -n $MYACR -g $RESOURCE_GROUP --query "username" -o tsv)
 ACR_ENDPOINT=$(az acr show -n $MYACR -g $RESOURCE_GROUP --query "loginServer" -o tsv)
 ```
-
-
-### Prepare AKS
-
 #### Create Service Principal
 
 ```bash
@@ -200,7 +195,17 @@ export AZURE_CREDENTIALS=`az ad sp create-for-rbac --name $SP_NAME --role contri
                         --json-auth`
 ```
 
-Add it as Github repo secret as well.
+#### Populate Config Server variables
+
+Create the following repository secret for setting up the config server:
+
+```bash
+CONFIG_REPO=https://github.com/$USERNAME/$REPONAME
+CONFIG_REPO_USER=$USERNAME
+CONFIG_REPO_PWD=$PAT
+```
+
+### Prepare AKS
 
 #### Get AKS credentials
 
@@ -217,8 +222,10 @@ kubectl create ns $NAMESPACE
 
 #### Run deployment (manually)
 
+In case you want to force a deployment manually, run:
+
 ```bash
-./deploy-in-aks.sh $MYACR.azurecr.io $(git rev-parse HEAD) $NAMESPACE
+./deploy-in-aks.sh $MYACR.azurecr.io $(git rev-parse HEAD) $NAMESPACE $CONFIG_REPO $CONFIG_REPO_USER $CONFIG_REPO_PWD
 ```
 
 #### Get service IP for the admin server

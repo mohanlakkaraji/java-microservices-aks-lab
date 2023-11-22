@@ -4,6 +4,10 @@
 acr="$1"
 commitsha="$2"
 namespace="$3"
+configrepo="$4"
+configrepouser="$5"
+configrepopwd="$6"
+
 
 service="spring-petclinic-config-server"
 tag="latest"
@@ -13,8 +17,11 @@ kubectl apply -f src/spring-petclinic-config-server/k8s/configmap.yaml -n $names
 IMAGE="$acr\/$service:$tag"
 echo "Deploying $service with image $IMAGE"
 
-sed -e 's/#image#/'$IMAGE'/g' -e \
-    's/#appname#/'$service'/g' \
+sed -e 's/#image#/'$IMAGE'/g' \
+    -e 's/#appname#/'$service'/g' \
+    -e 's!#configrepo#!'$configrepo'!g' \
+    -e 's!#configrepouser#!'$configrepouser'!g' \
+    -e 's!#configrepopwd#!'$configrepouserpwd'!g' \
     src/$service/k8s/application.yaml \
     | kubectl apply -f - -n $namespace
 

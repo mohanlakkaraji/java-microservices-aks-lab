@@ -23,6 +23,12 @@ spec:
             configMapKeyRef:
               name: config-server
               key: CONFIG_SERVER_URL
+        - name: "CONFIG_REPO"
+          value: #configrepo#
+        - name: "CONFIG_REPO_USER"
+          value: #configrepouser#
+        - name: "CONFIG_REPO_PWD"
+          value: #configrepopwd#
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3
