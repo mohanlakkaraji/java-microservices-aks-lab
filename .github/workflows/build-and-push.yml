@@ -14,6 +14,7 @@ on:
 
 env:
   APP_VERSION: ${{ github.sha }}
+  NAMESPACE: spring-petclinic
 
 jobs:
   push: 
@@ -82,6 +83,7 @@ jobs:
         run: |
           - name: Apply application.yaml manifest
             run: |
-              sed -i 's/#image#/${{ secrets.ACR_ENDPOINT}}\/${{ matrix.dir }}:${{ env.APP_VERSION}}/g' src/${{ matrix.dir }}/k8s/application.yaml
+              IMAGE=${{ secrets.ACR_ENDPOINT}}\/${{ matrix.dir }}:${{ env.APP_VERSION}}
+              sed -i 's/#image#/$IMAGE/g' src/${{ matrix.dir }}/k8s/application.yaml
               sed -i 's/#appname#/${{ matrix.dir }}/g' src/${{ matrix.dir }}/k8s/application.yaml
-              kubectl apply -f src/${{ matrix.dir }}/k8s/application.yaml
+              kubectl apply -f src/${{ matrix.dir }}/k8s/application.yaml -n ${{ env.NAMESPACE}}
