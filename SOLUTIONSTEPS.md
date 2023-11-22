@@ -189,3 +189,34 @@ ACR_ENDPOINT=$(az acr show -n $MYACR -g $RESOURCE_GROUP --query "loginServer" -o
 ```
 
 
+### Prepare AKS
+
+#### Create Service Principal
+
+```bash
+export SP_NAME=sp-$APPNAME-$UNIQUEID
+export AZURE_CREDENTIALS=`az ad sp create-for-rbac --name $SP_NAME --role contributor \
+                        --scopes /subscriptions/$(az account show --query id --output tsv)/resourceGroups/$RESOURCE_GROUP \
+                        --json-auth`
+```
+
+Added to the Github repo secrets.
+
+#### Get AKS credentials
+
+```bash
+az aks get-credentials -n $AKSCLUSTER -g $RESOURCE_GROUP
+```
+
+#### Create namespace
+
+```bash
+NAMESPACE=spring-petclinic
+kubectl create ns $NAMESPACE
+```
+
+#### Create configmap from yaml content
+    
+```bash	
+kubectl apply -f ./src/spring-petclinic-config-server/k8s/configmap.yaml -n $NAMESPACE
+```

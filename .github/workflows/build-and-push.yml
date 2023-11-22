@@ -12,11 +12,13 @@ on:
     branches: [ main ]
     paths: 'src/**'
 
+env:
+  APP_VERSION: ${{ github.sha }}
+
 jobs:
   push: 
     runs-on: ubuntu-latest
-    env:
-      APP_VERSION: ${{ github.sha }}
+
     strategy:
       matrix: { 
                 dir: [  "spring-petclinic-customers-service",
@@ -52,3 +54,34 @@ jobs:
         tags: ${{ secrets.ACR_ENDPOINT}}/${{ matrix.dir }}:${{ env.APP_VERSION}}
         build-args: |
           ARTIFACT_NAME=target/${{ matrix.dir }}-*.jar
+  deploy:
+    needs: push
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: { 
+                dir: [  "spring-petclinic-customers-service",
+                        "spring-petclinic-discovery-server",
+                        "spring-petclinic-vets-service",
+                        "spring-petclinic-visits-service",
+                        "spring-petclinic-api-gateway",
+                        "spring-petclinic-admin-server",
+                        "spring-petclinic-config-server"
+                     ] 
+              }
+    steps:
+      - uses: actions/checkout@v2
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Set up kubectl
+        uses: azure/kubectl@v1
+        with:
+          version: 'latest'
+      - name: Apply application.yaml manifest
+        run: |
+          - name: Apply application.yaml manifest
+            run: |
+              sed -i 's/#image#/${{ secrets.ACR_ENDPOINT}}\/${{ matrix.dir }}:${{ env.APP_VERSION}}/g' src/${{ matrix.dir }}/k8s/application.yaml
+              sed -i 's/#appname#/${{ matrix.dir }}/g' src/${{ matrix.dir }}/k8s/application.yaml
+              kubectl apply -f src/${{ matrix.dir }}/k8s/application.yaml
