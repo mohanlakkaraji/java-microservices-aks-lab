@@ -4,6 +4,9 @@
 name: Java CI with Maven and push to Azure Container registry
 
 on:
+  
+  workflow_dispatch: # Manual trigger
+
   push:
     branches: [ main ]
     paths: 'src/**'
