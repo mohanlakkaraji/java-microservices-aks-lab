@@ -200,7 +200,7 @@ export AZURE_CREDENTIALS=`az ad sp create-for-rbac --name $SP_NAME --role contri
                         --json-auth`
 ```
 
-Added to the Github repo secrets.
+Add it as Github repo secret as well.
 
 #### Get AKS credentials
 
@@ -215,16 +215,10 @@ NAMESPACE=spring-petclinic
 kubectl create ns $NAMESPACE
 ```
 
-#### Create configmap from yaml content
-    
-```bash	
-kubectl apply -f ./src/spring-petclinic-config-server/k8s/configmap.yaml -n $NAMESPACE
-```
-
 #### Run deployment (manually)
 
 ```bash
-./deploy-in-aks.sh $MYACR.azurecr.io $(git rev-parse HEAD) spring-petclinic
+./deploy-in-aks.sh $MYACR.azurecr.io $(git rev-parse HEAD) $NAMESPACE
 ```
 
 #### Get service IP for the admin server

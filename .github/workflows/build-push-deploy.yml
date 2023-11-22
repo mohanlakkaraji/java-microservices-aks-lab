@@ -112,3 +112,4 @@ jobs:
           sed -e 's!#image#!'$IMAGE'!g' \
             src/spring-petclinic-config-server/k8s/application.yaml \
             | kubectl apply -f - -n ${{ env.NAMESPACE}}
+          kubectl apply -f src/spring-petclinic-config-server/k8s/configmap.yaml -n ${{ env.NAMESPACE }}         
