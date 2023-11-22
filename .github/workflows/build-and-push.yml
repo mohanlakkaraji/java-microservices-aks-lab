@@ -4,9 +4,7 @@
 name: Java CI with Maven and push to Azure Container registry
 
 on:
-  
   workflow_dispatch: # Manual trigger
-
   push:
     branches: [ main ]
     paths: 'src/**'
@@ -16,8 +14,10 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
+    env:
+      ACR: acrpetclinic60b399
+      APP_VERSION: ${{ github.sha }}
 
     steps:
     - uses: actions/checkout@v2
@@ -29,3 +29,17 @@ jobs:
         cache: maven
     - name: Build with Maven
       run: mvn -B package --file src/pom.xml
+
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+    - name: Build and push Docker image for dir1
+      uses: docker/build-push-action@v2
+      with:
+        context: src/spring-petclinic-vets-service
+        push: true
+        tags: ${{ env.ACR}}/spring-petclinic-vets-service:${{ env.VERSION}}
+        args: |
+          ARTIFACT_NAME=spring-petclinic-vets-service-*.jar
+          APP_PORT=8080

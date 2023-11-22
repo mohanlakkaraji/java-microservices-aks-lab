@@ -169,3 +169,20 @@ git push
 ```
 
 NOTE: this credentials will be removed later on
+
+### Github actions
+
+#### Create Service Principal
+
+```bash
+export SP_NAME=sp-$APPNAME-$UNIQUEID
+export AZURE_CREDENTIALS=`az ad sp create-for-rbac --name $SP_NAME --role contributor \
+                        --scopes /subscriptions/$(az account show --query id --output tsv)/resourceGroups/$RESOURCE_GROUP \
+                        --json-auth`
+```	
+
+#### Create Github Secret
+
+Get the content of the AZURE_CREDENTIALS variable and create a new secret in your repo called AZURE_CREDENTIALS.
+
+```bash
