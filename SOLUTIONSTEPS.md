@@ -169,6 +169,21 @@ git push
 
 NOTE: this credentials will be removed later on
 
+### Prepare AKS
+
+#### Get AKS credentials
+
+```bash
+az aks get-credentials -n $AKSCLUSTER -g $RESOURCE_GROUP
+```
+
+#### Create namespace
+
+```bash
+NAMESPACE=spring-petclinic
+kubectl create ns $NAMESPACE
+```
+
 ### Github actions
 
 #### Get ACR credentials
@@ -207,28 +222,15 @@ CONFIG_REPO_USER=$USERNAME
 CONFIG_REPO_PWD=$PAT
 ```
 
-### Prepare AKS
-
-#### Get AKS credentials
-
-```bash
-az aks get-credentials -n $AKSCLUSTER -g $RESOURCE_GROUP
-```
-
-#### Create namespace
-
-```bash
-NAMESPACE=spring-petclinic
-kubectl create ns $NAMESPACE
-```
-
-#### Run deployment (manually)
+### Run deployment (manually)
 
 In case you want to force a deployment manually, run:
 
 ```bash
 ./deploy-in-aks.sh $MYACR.azurecr.io $(git rev-parse HEAD) $NAMESPACE $CONFIG_REPO $CONFIG_REPO_USER $CONFIG_REPO_PWD
 ```
+
+### Test the app
 
 #### Get service IP for the admin server
 
