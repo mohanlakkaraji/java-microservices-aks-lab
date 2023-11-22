@@ -92,7 +92,7 @@ jobs:
             | kubectl apply -f - -n ${{ env.NAMESPACE}}
 
   deploy-config-server:
-    needs: push
+    # needs: push
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
