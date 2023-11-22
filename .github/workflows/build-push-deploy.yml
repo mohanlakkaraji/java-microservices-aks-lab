@@ -21,7 +21,6 @@ env:
 jobs:
 
   push: 
-    if: false
     runs-on: ubuntu-latest
     strategy:
       matrix: { 
@@ -60,7 +59,6 @@ jobs:
           ARTIFACT_NAME=target/${{ matrix.dir }}-*.jar
 
   deploy:
-    if: false
     needs: deploy-config-server
     runs-on: ubuntu-latest
     strategy:
@@ -84,17 +82,18 @@ jobs:
         uses: azure/setup-kubectl@v3
         with:
           version: 'latest'
+      - name: Get AKS credentials
+        run: az aks get-credentials --resource-group ${{ env.AKS_RESOURCE_GROUP }} --name ${{ env.AKS_CLUSTER_NAME }}
       - name: Apply application.yaml manifest
         run: |
-          IMAGE="${{ secrets.ACR_ENDPOINT }}\/${{ matrix.dir }}:${{ env.APP_VERSION }}"
-          echo $IMAGE
-          sed -e 's/#image#/'$IMAGE'/g' -e \
-            's/#appname#/'${{ matrix.dir }}'/g' \
+          IMAGE="${{ secrets.ACR_ENDPOINT }}/${{ matrix.dir }}:${{ env.APP_VERSION }}"
+          sed -e 's!#image#!'$IMAGE'!g' \
+            -e 's!#appname#!'${{ matrix.dir }}'/g' \
             src/$service/k8s/application.yaml \
             | kubectl apply -f - -n ${{ env.NAMESPACE }}
             
   deploy-config-server:
-    # needs: push
+    needs: push
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -111,7 +110,6 @@ jobs:
       - name: Apply application.yaml manifest
         run: |
           IMAGE="${{ secrets.ACR_ENDPOINT }}/spring-petclinic-config-server:latest"
-          echo $IMAGE
           sed -e 's!#image#!'$IMAGE'!g' \
             src/spring-petclinic-config-server/k8s/application.yaml \
             | kubectl apply -f - -n ${{ env.NAMESPACE}}
