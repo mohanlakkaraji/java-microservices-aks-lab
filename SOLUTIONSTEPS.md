@@ -195,6 +195,8 @@ export AZURE_CREDENTIALS=`az ad sp create-for-rbac --name $SP_NAME --role contri
                         --json-auth`
 ```
 
+Add a repo secret named AZURE_CREDENTAILS with above value.
+
 #### Populate Config Server variables
 
 Create the following repository secret for setting up the config server:
