@@ -354,4 +354,135 @@ Push the changes to the repo and wait for the deployment to finish:
 ```bash
 git add .github/workflows/ src
 git commit -m "ready with app insights"
+git push
+```
+
+## Lab 4
+
+### Enabling key vault
+
+#### Create a key vault
+
+```bash
+KEYVAULT_NAME=kv-$APPNAME-$UNIQUEID
+az keyvault create \
+    --name $KEYVAULT_NAME \
+    --resource-group $RESOURCE_GROUP \
+    --location $LOCATION \
+    --sku standard
+```
+
+Add PAT as a secret:
+
+```bash
+GIT_PAT=<your PAT>
+az keyvault secret set \
+    --name GIT-PAT \
+    --value $GIT_PAT \
+    --vault-name $KEYVAULT_NAME
+```
+
+#### Enable workload identity in AKS
+
+```bash
+az aks update --enable-oidc-issuer --enable-workload-identity --name $AKSCLUSTER --resource-group $RESOURCE_GROUP
+```
+
+Set the oidc issuer:
+    
+```bash
+export AKS_OIDC_ISSUER="$(az aks show -n $AKSCLUSTER -g $RESOURCE_GROUP --query "oidcIssuerProfile.issuerUrl" -otsv)"
+echo $AKS_OIDC_ISSUER
+```
+
+Create a user assigned identity:
+
+```bash
+USER_ASSIGNED_IDENTITY_NAME=uid-$APPNAME-$UNIQUEID
+
+az identity create --name "${USER_ASSIGNED_IDENTITY_NAME}" --resource-group "${RESOURCE_GROUP}" --location "${LOCATION}"
+
+az identity show --resource-group "${RESOURCE_GROUP}" --name "${USER_ASSIGNED_IDENTITY_NAME}"
+USER_ASSIGNED_CLIENT_ID="$(az identity show --resource-group "${RESOURCE_GROUP}" --name "${USER_ASSIGNED_IDENTITY_NAME}" --query 'clientId' -otsv)"
+echo $USER_ASSIGNED_CLIENT_ID
+```
+
+Add persmissions to the identity to access the key vault:
+
+```bash
+az keyvault set-policy -g $RESOURCE_GROUP -n $KEYVAULT_NAME --key-permissions get --spn $USER_ASSIGNED_CLIENT_ID
+az keyvault set-policy -g $RESOURCE_GROUP -n $KEYVAULT_NAME --secret-permissions get --spn $USER_ASSIGNED_CLIENT_ID
+az keyvault set-policy -g $RESOURCE_GROUP -n $KEYVAULT_NAME --certificate-permissions get --spn $USER_ASSIGNED_CLIENT_ID
+```
+
+Add a service account that uses the identity:
+
+```bash
+SERVICE_ACCOUNT_NAME="workload-identity-sa"
+
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  annotations:
+    azure.workload.identity/client-id: "${USER_ASSIGNED_CLIENT_ID}"
+  name: "${SERVICE_ACCOUNT_NAME}"
+  namespace: "${NAMESPACE}"
+EOF
+```
+
+Create the federated identity credential between the managed identity, the service account issuer, and the subject:
+
+```bash
+FEDERATED_IDENTITY_CREDENTIAL_NAME=fedid-$APPNAME-$UNIQUEID
+
+az identity federated-credential create --name ${FEDERATED_IDENTITY_CREDENTIAL_NAME} --identity-name "${USER_ASSIGNED_IDENTITY_NAME}" --resource-group "${RESOURCE_GROUP}" --issuer "${AKS_OIDC_ISSUER}" --subject system:serviceaccount:"${NAMESPACE}":"${SERVICE_ACCOUNT_NAME}" --audience api://AzureADTokenExchange
+```
+#### Add Key Vault CSI driver to the cluster
+
+```bash
+az aks enable-addons --addons azure-keyvault-secrets-provider --name $AKSCLUSTER --resource-group $RESOURCE_GROUP
+```
+
+Validate driver pods are running:
+
+```bash
+kubectl get pods -n kube-system
+```
+
+#### Create a SecretProviderClass
+
+```bash
+ADTENANT=$(az account show --query tenantId --output tsv)
+
+cat <<EOF | kubectl apply -n spring-petclinic -f -
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: azure-kvname-user-msi
+spec:
+  provider: azure
+  secretObjects:
+  - secretName: gitpatsecret
+    type: Opaque
+    data: 
+    - objectName: gitpat
+      key: gitpat
+  parameters:
+    usePodIdentity: "false"
+    useVMManagedIdentity: "false" 
+    clientID: $USER_ASSIGNED_CLIENT_ID 
+    keyvaultName: $KEYVAULT_NAME
+    cloudName: "" 
+    objects: |
+      array: 
+        - |
+          objectName: GIT-PAT
+          objectType: secret   
+          objectAlias: gitpat          
+          objectVersion: ""  
+    tenantId: $ADTENANT
+EOF
+```
+
 

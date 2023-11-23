@@ -112,7 +112,6 @@ jobs:
           sed -e 's!#image#!'$IMAGE'!g' \
             -e 's!#configrepo#!'${{ secrets.CONFIG_REPO }}'!g' \
             -e 's!#configrepouser#!'${{ secrets.CONFIG_REPO_USER }}'!g' \
-            -e 's!#configrepopwd#!'${{ secrets.CONFIG_REPO_PWD }}'!g' \
             src/spring-petclinic-config-server/k8s/application.yaml \
             | kubectl apply -f - -n ${{ env.NAMESPACE}}
           kubectl apply -f src/spring-petclinic-config-server/k8s/configmap.yaml -n ${{ env.NAMESPACE }}         
