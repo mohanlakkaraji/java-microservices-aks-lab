@@ -286,9 +286,15 @@ az monitor app-insights component create \
 Download agent:
     
 ```bash
-mkdir src/appinsights
-wget https://github.com/microsoft/ApplicationInsights-Java/releases/download/3.4.12/applicationinsights-agent-3.4.12.jar -O src/appinsights/applicationinsights-agent-3.4.12.jar
-cp src/appinsights/applicationinsights-agent-3.4.12.jar src/appinsights/ai.jar
+services=("spring-petclinic-discovery-server" "spring-petclinic-customers-service" "spring-petclinic-vets-service" "spring-petclinic-visits-service" "spring-petclinic-api-gateway" "spring-petclinic-admin-server" "spring-petclinic-config-server")
+wget https://github.com/microsoft/ApplicationInsights-Java/releases/download/3.4.12/applicationinsights-agent-3.4.12.jar -O /tmp/applicationinsights-agent-3.4.12.jar
+
+for service in "${services[@]}"
+do
+    mkdir -f src/$service/appinsights
+    cp /tmp/applicationinsights-agent-3.4.12.jar src/$service/appinsights/ai.jar
+
+done
 ```
 
 Add in your Dockerfile the following lines:
