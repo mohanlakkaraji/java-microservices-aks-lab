@@ -50,7 +50,7 @@ spec:
             }
         - name: GIT_PAT
           valueFrom:
-            secretKeyRef:
+            secretKeyRef: 
               name: gitpatsecret
               key: gitpat
         volumeMounts:

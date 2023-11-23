@@ -484,5 +484,96 @@ spec:
     tenantId: $ADTENANT
 EOF
 ```
+#### Connect to DB
 
+We will connect to the database using a managed identity and worklod identity.
 
+Create a user assigned identity:
+
+```bash
+DB_ADMIN_USER_ASSIGNED_IDENTITY_NAME=uid-dbadmin-$APPNAME-$UNIQUEID
+
+az identity create --name "${DB_ADMIN_USER_ASSIGNED_IDENTITY_NAME}" --resource-group "${RESOURCE_GROUP}" --location "${LOCATION}"
+```
+
+Assign identity to the DB:
+
+```bash
+az mysql flexible-server identity assign \
+    --resource-group $RESOURCE_GROUP \
+    --server-name $MYSQL_SERVER_NAME \
+    --identity $DB_ADMIN_USER_ASSIGNED_IDENTITY_NAME
+```
+
+Get the user info you are currently logged in:
+
+```bash
+CURRENT_USER=$(az account show --query user.name --output tsv)
+echo $CURRENT_USER
+CURRENT_USER_OBJECTID=$(az ad signed-in-user show --query id --output tsv)
+echo $CURRENT_USER_OBJECTID
+```
+
+Create a DB admin for the current logged in user:
+
+```bash
+az mysql flexible-server ad-admin create \
+    --resource-group $RESOURCE_GROUP \
+    --server-name $MYSQL_SERVER_NAME \
+    --object-id $CURRENT_USER_OBJECTID \
+    --display-name $CURRENT_USER \
+    --identity $DB_ADMIN_USER_ASSIGNED_IDENTITY_NAME
+```
+
+Create an sql file for creating a database user for the user assigned managed identity:
+
+```bash
+IDENTITY_LOGIN_NAME="mysql_conn"
+
+cat <<EOF >/tmp/createuser.sql
+SET aad_auth_validate_oids_in_tenant = OFF;
+DROP USER IF EXISTS '${IDENTITY_LOGIN_NAME}'@'%';
+CREATE AADUSER '${IDENTITY_LOGIN_NAME}' IDENTIFIED BY '${USER_ASSIGNED_CLIENT_ID}';
+GRANT ALL PRIVILEGES ON ${DATABASE_NAME}.* TO '${IDENTITY_LOGIN_NAME}'@'%';
+FLUSH privileges;
+EOF
+```
+
+Get an access token for the database and execute the sql script with this access token:
+
+```bash
+RDBMS_ACCESS_TOKEN=$(az account get-access-token \
+    --resource-type oss-rdbms \
+    --query accessToken \
+    --output tsv) 
+echo $RDBMS_ACCESS_TOKEN
+
+az mysql flexible-server execute \
+    --name ${MYSQL_SERVER_NAME} \
+    --admin-user ${CURRENT_USER} \
+    --admin-password ${RDBMS_ACCESS_TOKEN} \
+    --file-path "createuser.sql"
+```
+
+Change jdbc dependency in pom.xml to replace the regular mysql connector by the azure one:
+
+(in customers, vets and visits pom.xml)
+
+```bash
+     <dependency>
+       <groupId>com.azure.spring</groupId>
+       <artifactId>spring-cloud-azure-starter-jdbc-mysql</artifactId>
+     </dependency>
+```
+
+In parent pom.xml, add the following dependency  in dependencies management:
+
+```bash
+        <dependency>
+           <groupId>com.azure.spring</groupId>
+           <artifactId>spring-cloud-azure-dependencies</artifactId>
+           <version>5.2.0</version>
+           <type>pom</type>
+           <scope>import</scope>
+         </dependency>
+```
