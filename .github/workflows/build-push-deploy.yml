@@ -57,6 +57,7 @@ jobs:
         tags: ${{ secrets.ACR_ENDPOINT}}/${{ matrix.dir }}:${{ env.APP_VERSION}}
         build-args: |
           ARTIFACT_NAME=target/${{ matrix.dir }}-*.jar
+          APP_INSIGHTS_JAR=../appinsights/ai.jar
 
   deploy:
     needs: deploy-discovery-server

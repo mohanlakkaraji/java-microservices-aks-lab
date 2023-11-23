@@ -343,6 +343,9 @@ NOTE: I just hardcoded the appname for config-server, api-gateway and discovery-
             }
 ```
 
-Push the changes to the repo and wait for the deployment to finish.
+Push the changes to the repo and wait for the deployment to finish:
 
+```bash
+git add .github/workflows/ src
+git commit -m "ready with app insights"
 
