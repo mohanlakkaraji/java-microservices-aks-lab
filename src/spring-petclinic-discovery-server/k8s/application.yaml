@@ -32,7 +32,7 @@ spec:
           value: >-
             {
                 "role": {   
-                    "name": "#appname#"
+                    "name": "discovery-server"
                   }
             }
         imagePullPolicy: Always
