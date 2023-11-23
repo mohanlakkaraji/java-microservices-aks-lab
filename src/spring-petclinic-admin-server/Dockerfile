@@ -2,7 +2,7 @@ FROM mcr.microsoft.com/openjdk/jdk:17-mariner
 
 ARG ARTIFACT_NAME
 ARG APP_PORT
-ARG AI_JAR
+ARG APP_INSIGHTS_JAR
 
 EXPOSE 8080 8778 9779
 
