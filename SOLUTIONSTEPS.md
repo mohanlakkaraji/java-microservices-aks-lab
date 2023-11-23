@@ -186,6 +186,8 @@ kubectl create ns $NAMESPACE
 
 ### Github actions
 
+I have created a github action that will build and push the images to AC and then, deploy the applications to AKS. You can find it in [build-push-deploy.yml](.github/workflows/build-push-deploy.yml)
+
 #### Get ACR credentials
 
 Enable admin user in ACR:
