@@ -2,27 +2,39 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: spring-petclinic-vets-service
-  name: spring-petclinic-vets-service
+    app: #appname#
+  name: #appname#
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: spring-petclinic-vets-service
+      app: #appname#
   template:
     metadata:
       labels:
-        app: spring-petclinic-vets-service
+        app: #appname#
     spec:
       containers:
       - image: #image#
-        name: spring-petclinic-vets-service
+        name: #appname#
         env:
         - name: "CONFIG_SERVER_URL"
           valueFrom:
             configMapKeyRef:
               name: config-server
               key: CONFIG_SERVER_URL
+        - name: "APPLICATIONINSIGHTS_CONNECTION_STRING"
+          valueFrom:
+            configMapKeyRef:
+              name: config-server
+              key: APPLICATIONINSIGHTS_CONNECTION_STRING
+        - name: "APPLICATIONINSIGHTS_CONFIGURATION_CONTENT"
+          value: >-
+            {
+                "role": {   
+                    "name": "#appname#"
+                  }
+            }
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3
@@ -59,13 +71,13 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: spring-petclinic-vets-service
-  name: spring-petclinic-vets-service
+    app: #appname#
+  name: #appname#
 spec:
   ports:
   - port: 8080
     protocol: TCP
     targetPort: 8080
   selector:
-    app: spring-petclinic-vets-service
+    app: #appname#
   type: ClusterIP

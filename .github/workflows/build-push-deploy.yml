@@ -59,12 +59,11 @@ jobs:
           ARTIFACT_NAME=target/${{ matrix.dir }}-*.jar
 
   deploy:
-    needs: deploy-config-server
+    needs: deploy-discovery-server
     runs-on: ubuntu-latest
     strategy:
       matrix: { 
                 dir: [  "spring-petclinic-customers-service",
-                        "spring-petclinic-discovery-server",
                         "spring-petclinic-vets-service",
                         "spring-petclinic-visits-service",
                         "spring-petclinic-api-gateway",
@@ -116,3 +115,26 @@ jobs:
             src/spring-petclinic-config-server/k8s/application.yaml \
             | kubectl apply -f - -n ${{ env.NAMESPACE}}
           kubectl apply -f src/spring-petclinic-config-server/k8s/configmap.yaml -n ${{ env.NAMESPACE }}         
+
+  deploy-discovery-server:
+    needs: deploy-config-server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Log in to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'latest'
+      - name: Get AKS credentials
+        run: az aks get-credentials --resource-group ${{ env.AKS_RESOURCE_GROUP }} --name ${{ env.AKS_CLUSTER_NAME }}
+      - name: Apply application.yaml manifest
+        run: |
+          IMAGE="${{ secrets.ACR_ENDPOINT }}/spring-petclinic-discovery-server:${{ env.APP_VERSION }}"
+          sed -e 's!#image#!'$IMAGE'!g' \
+            src/spring-petclinic-discovery-server/k8s/application.yaml \
+            | kubectl apply -f - -n ${{ env.NAMESPACE }}
+                    

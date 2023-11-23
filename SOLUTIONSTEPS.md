@@ -245,3 +245,104 @@ export ADMIN_SVCIP=$(kubectl get svc spring-petclinic-admin-server -n $NAMESPACE
 ```bash
 export APIGATEWAY_SVCIP=$(kubectl get svc api-gateway -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
 ```
+
+## Lab 3
+
+### Enabling monitoring
+
+#### Create infrastructure
+
+Create Log Analitycs Workspace:
+
+```bash	
+WORKSPACE=la-$APPNAME-$UNIQUEID
+az monitor log-analytics workspace create \
+    --resource-group $RESOURCE_GROUP \
+    --workspace-name $WORKSPACE
+WORKSPACEID=$(az monitor log-analytics workspace show -n $WORKSPACE -g $RESOURCE_GROUP --query id -o tsv)
+
+az aks enable-addons \
+    -a monitoring \
+    -n $AKSCLUSTER \
+    -g $RESOURCE_GROUP \
+    --workspace-resource-id $WORKSPACEID
+```
+
+Create Application Insights:
+
+```bash
+APPINSIGHTS=ai-$APPNAME-$UNIQUEID
+az monitor app-insights component create \
+    --app $APPINSIGHTS \
+    --location $LOCATION \
+    --resource-group $RESOURCE_GROUP \
+    --application-type web \
+    --kind web \
+    --workspace $WORKSPACEID
+```
+
+#### Prepare app images and k8s manifests
+
+Download agent:
+    
+```bash
+mkdir src/appinsights
+wget https://github.com/microsoft/ApplicationInsights-Java/releases/download/3.4.12/applicationinsights-agent-3.4.12.jar -O src/appinsights/applicationinsights-agent-3.4.12.jar
+cp src/appinsights/applicationinsights-agent-3.4.12.jar src/appinsights/ai.jar
+```
+
+Add in your Dockerfile the following lines:
+
+```bash
+ARG APP_INSIGHTS_JAR
+
+....
+....
+
+# Add App Insights jar to the container
+ADD ${APP_INSIGHTS_JAR} ai.jar
+
+# Run the jar file
+ENTRYPOINT ["java","-Djava.security.egd=file:/dev/./urandom","-javaagent:/ai.jar","-jar","/app.jar"]
+```
+
+Get the AI connection string:
+
+```bash
+AI_CONNECTIONSTRING=$(az monitor app-insights component show --app $APPINSIGHTS -g $RESOURCE_GROUP --query connectionString)
+```
+
+Add this line to the config server ConfigMap:
+
+```bash
+echo "  APPLICATIONINSIGHTS_CONNECTION_STRING: $AI_CONNECTIONSTRING"
+```
+
+Replace ConfigMap:
+    
+```bash
+kubectl replace -f src/spring-petclinic-config-server/k8s/configmap.yaml -n $NAMESPACE
+```
+
+Add the following lines to the deployment of each service:
+
+NOTE: I just hardcoded the appname for config-server, api-gateway and discovery-server.
+
+```bash	
+        - name: "APPLICATIONINSIGHTS_CONNECTION_STRING"
+          valueFrom:
+            configMapKeyRef:
+              name: config-server
+              key: APPLICATIONINSIGHTS_CONNECTION_STRING
+        - name: "APPLICATIONINSIGHTS_CONFIGURATION_CONTENT"
+          value: >-
+            {
+                "role": {   
+                    "name": "#appname#"
+                  }
+            }
+```
+
+Push the changes to the repo and wait for the deployment to finish.
+
+
