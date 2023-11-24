@@ -37,6 +37,15 @@ spec:
                     "name": "#appname#"
                   }
             }
+        - name: SPRING_JMS_SERVICEBUS_CONNECTIONSTRING
+          valueFrom:
+            secretKeyRef:
+              name: sbsecret
+              key: sbconn
+        volumeMounts:
+        - name: secrets-store01-inline
+          mountPath: "/mnt/secrets-store"
+          readOnly: true
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3

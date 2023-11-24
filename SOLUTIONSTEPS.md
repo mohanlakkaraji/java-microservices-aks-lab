@@ -706,3 +706,202 @@ Make the visits service to consume the messages. First, add the dependency in th
           <artifactId>spring-cloud-azure-starter-servicebus-jms</artifactId>
         </dependency>
 ```
+
+Add two new entities in the visits service:
+
+```java
+package org.springframework.samples.petclinic.visits.entities;
+   
+import java.io.Serializable;
+import java.util.Date;
+   
+public class VisitRequest implements Serializable {
+    private static final long serialVersionUID = -249974321255677286L;
+   
+    private Integer requestId;
+    private Integer petId;
+    private String message;
+   
+    public VisitRequest() {
+    }
+   
+    public Integer getRequestId() {
+        return requestId;
+    }
+   
+    public void setRequestId(Integer id) {
+        this.requestId = id;
+    }
+   
+    public Integer getPetId() {
+        return petId;
+    }
+   
+    public void setPetId(Integer petId) {
+        this.petId = petId;
+    }
+   
+    public String getMessage() {
+        return message;
+    }
+   
+    public void setMessage(String message) {
+        this.message = message;
+    }
+}
+```
+
+
+and 
+
+```java
+package org.springframework.samples.petclinic.visits.entities;
+   
+public class VisitResponse {
+    Integer requestId;
+    Boolean confirmed;
+    String reason;
+   
+    public VisitResponse() {
+    }
+       
+    public VisitResponse(Integer requestId, Boolean confirmed, String reason) {
+        this.requestId = requestId;
+        this.confirmed = confirmed;
+        this.reason = reason;
+    }    
+   
+    public Boolean getConfirmed() {
+        return confirmed;
+    }
+   
+    public void setConfirmed(Boolean confirmed) {
+        this.confirmed = confirmed;
+    }
+   
+    public String getReason() {
+        return reason;
+    }
+   
+    public void setReason(String reason) {
+        this.reason = reason;
+    }
+   
+    public Integer getRequestId() {
+        return requestId;
+    }
+   
+    public void setRequestId(Integer requestId) {
+        this.requestId = requestId;
+    }
+}
+```
+
+Add the messaging config class under config package:
+
+```java
+package org.springframework.samples.petclinic.visits.config;
+   
+import java.util.HashMap;
+import java.util.Map;
+   
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.jms.support.converter.MappingJackson2MessageConverter;
+import org.springframework.jms.support.converter.MessageConverter;
+import org.springframework.samples.petclinic.visits.entities.VisitRequest;
+import org.springframework.samples.petclinic.visits.entities.VisitResponse;
+   
+@Configuration
+public class MessagingConfig {
+   
+    @Bean
+    public MessageConverter jackson2Converter() {
+        MappingJackson2MessageConverter converter = new MappingJackson2MessageConverter();
+   
+        Map<String, Class<?>> typeMappings = new HashMap<String, Class<?>>();
+        typeMappings.put("visitRequest", VisitRequest.class);
+        typeMappings.put("visitResponse", VisitResponse.class);
+        converter.setTypeIdMappings(typeMappings);
+        converter.setTypeIdPropertyName("messageType");
+        return converter;
+    }
+}
+```
+
+And the queue config class:
+
+```java
+package org.springframework.samples.petclinic.visits.config;
+
+import org.springframework.beans.factory.annotation.Value;
+
+public class QueueConfig {
+    @Value("${spring.jms.queue.visits-requests:visits-requests}")
+    private String visitsRequestsQueue;
+
+    public String getVisitsRequestsQueue() {
+        return visitsRequestsQueue;
+    }   
+}
+```
+
+Add the receiver class:
+
+```java
+package org.springframework.samples.petclinic.visits.service;
+   
+import java.util.Date;
+   
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
+import org.springframework.jms.annotation.JmsListener;
+import org.springframework.jms.core.JmsTemplate;
+import org.springframework.samples.petclinic.visits.entities.VisitRequest;
+import org.springframework.samples.petclinic.visits.entities.VisitResponse;
+import org.springframework.samples.petclinic.visits.model.Visit;
+import org.springframework.samples.petclinic.visits.model.VisitRepository;
+import org.springframework.stereotype.Component;
+   
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+   
+@Component
+@Slf4j
+@RequiredArgsConstructor
+public class VisitsReceiver {
+    private final VisitRepository visitsRepository;
+       
+    private final JmsTemplate jmsTemplate;
+   
+    @JmsListener(destination = "visits-requests")
+    void receiveVisitRequests(VisitRequest visitRequest) {
+        log.info("Received message: {}", visitRequest.getMessage());
+        try {
+            Visit visit = new Visit(null, new Date(), visitRequest.getMessage(),
+                    visitRequest.getPetId());
+            visitsRepository.save(visit);
+            jmsTemplate.convertAndSend("visits-confirmations", new VisitResponse(visitRequest.getRequestId(), true, "Your visit request has been accepted"));
+        } catch (Exception ex) {
+            log.error("Error saving visit: {}", ex.getMessage());
+            jmsTemplate.convertAndSend("visits-confirmations", new VisitResponse(visitRequest.getRequestId(), false, ex.getMessage()));
+        }
+    }
+   
+}
+```
+
+Add the enviroment variables from KeyVault in the deployment of the application.yaml 
+
+```bash
+        - name: SPRING_JMS_SERVICEBUS_CONNECTIONSTRING
+          valueFrom:
+            secretKeyRef:
+              name: sbsecret
+              key: sbconn
+        volumeMounts:
+        - name: secrets-store01-inline
+          mountPath: "/mnt/secrets-store"
+          readOnly: true
+```
