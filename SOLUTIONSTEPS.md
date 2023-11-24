@@ -484,6 +484,9 @@ spec:
     tenantId: $ADTENANT
 EOF
 ```
+
+Update [application.yml](src/spring-petclinic-config-server/src/main/resources/application.yml) to use GIT_PAT instead of CONFIG_REPO_PWD.
+
 #### Connect to DB
 
 We will connect to the database using a managed identity and worklod identity.
@@ -552,7 +555,7 @@ az mysql flexible-server execute \
     --name ${MYSQL_SERVER_NAME} \
     --admin-user ${CURRENT_USER} \
     --admin-password ${RDBMS_ACCESS_TOKEN} \
-    --file-path "createuser.sql"
+    --file-path "/tmp/createuser.sql"
 ```
 
 Change jdbc dependency in pom.xml to replace the regular mysql connector by the azure one:
@@ -563,6 +566,7 @@ Change jdbc dependency in pom.xml to replace the regular mysql connector by the 
      <dependency>
        <groupId>com.azure.spring</groupId>
        <artifactId>spring-cloud-azure-starter-jdbc-mysql</artifactId>
+       <scope>runtime</scope>
      </dependency>
 ```
 
@@ -576,4 +580,108 @@ In parent pom.xml, add the following dependency  in dependencies management:
            <type>pom</type>
            <scope>import</scope>
          </dependency>
+```
+
+## Lab 5
+
+### Integration with Service Bus
+
+In order to support JMS 2.0 messaging, you need to create the Service Bus namespace with the Premium SKU. To ensure the microservices can retrieve the namespace value, add a connection string to your Service Bus namespace in the Key Vault instance that you provisioned earlier in this lab.
+
+NOTE: As a more secure alternative, you could use managed identities associated with your microservices to connect directly to the Service Bus namespace. However, in this lab, you will store the connection string in your Key Vault.
+
+#### Add configuration in config server
+
+Add the following lines to the application.yml of the config repo:
+
+```bash
+  jms:
+    servicebus:
+      connection-string: ${spring.jms.servicebus.connectionstring}
+      idle-timeout: 60000
+      pricing-tier: premium
+```
+
+#### Create Service Bus namespace
+
+```bash
+SERVICEBUS_NAMESPACE=sb-$APPNAME-$UNIQUEID
+
+az servicebus namespace create \
+    --resource-group $RESOURCE_GROUP \
+    --name $SERVICEBUS_NAMESPACE \
+    --location $LOCATION \
+    --sku Premium
+```
+
+#### Create Service Bus queue
+
+```bash
+az servicebus queue create \
+    --resource-group $RESOURCE_GROUP \
+    --namespace-name $SERVICEBUS_NAMESPACE \
+    --name visits-requests
+```
+
+#### Add connection string to Key Vault
+
+```bash
+SERVICEBUS_CONNECTIONSTRING=$(az servicebus namespace authorization-rule keys list \
+    --resource-group $RESOURCE_GROUP \
+    --namespace-name $SERVICEBUS_NAMESPACE \
+    --name RootManageSharedAccessKey \
+    --query primaryConnectionString \
+    --output tsv)
+az keyvault secret set \
+    --name SPRING-JMS-SERVICEBUS-CONNECTIONSTRING \
+    --value $SERVICEBUS_CONNECTIONSTRING \
+    --vault-name $KEYVAULT_NAME
+```
+
+#### Try it using spring-petclinic-messaging-emulator project
+
+Add <module>spring-petclinic-messaging-emulator</module> in parent pom.xml.
+
+
+Modify SecretProviderClass to add the following:
+
+```bash
+cat <<EOF | kubectl apply -n $NAMESPACE -f -
+apiVersion: secrets-store.csi.x-k8s.io/v1
+kind: SecretProviderClass
+metadata:
+  name: azure-kvname-user-msi
+spec:
+  provider: azure
+  secretObjects:
+  - secretName: gitpatsecret
+    type: Opaque
+    data: 
+    - objectName: gitpat
+      key: gitpat
+  - secretName: sbsecret
+    type: Opaque
+    data: 
+    - objectName: sbconn
+      key: sbconn
+  parameters:
+    usePodIdentity: "false"
+    useVMManagedIdentity: "false" 
+    clientID: $USER_ASSIGNED_CLIENT_ID 
+    keyvaultName: $KEYVAULT_NAME
+    cloudName: "" 
+    objects: |
+      array:
+        - |
+          objectName: SPRING-JMS-SERVICEBUS-CONNECTIONSTRING
+          objectType: secret   
+          objectAlias: sbconn       
+          objectVersion: ""  
+        - |
+          objectName: GIT-PAT
+          objectType: secret   
+          objectAlias: gitpat          
+          objectVersion: ""  
+    tenantId: $ADTENANT
+EOF
 ```

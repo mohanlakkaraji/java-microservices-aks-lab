@@ -2,21 +2,30 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: discovery-server
-  name: discovery-server
+    app: messaging-emulator
+  name: messaging-emulator
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: discovery-server
+      app: messaging-emulator
   template:
     metadata:
       labels:
-        app: discovery-server
+        app: messaging-emulator
+        azure.workload.identity/use: "true"
     spec:
+      serviceAccountName: workload-identity-sa
+      volumes:
+      - name: secrets-store01-inline
+        csi: 
+          driver: secrets-store.csi.k8s.io
+          readOnly: true
+          volumeAttributes: 
+            secretProviderClass: "azure-kvname-user-msi"
       containers:
       - image: #image#
-        name: discovery-server
+        name: messaging-emulator
         env:
         - name: "CONFIG_SERVER_URL"
           valueFrom:
@@ -32,15 +41,24 @@ spec:
           value: >-
             {
                 "role": {   
-                    "name": "discovery-server"
+                    "name": "messaging-emulator"
                   }
             }
+        - name: SPRING_JMS_SERVICEBUS_CONNECTIONSTRING
+          valueFrom:
+            secretKeyRef:
+              name: sbsecret
+              key: sbconn
+        volumeMounts:
+        - name: secrets-store01-inline
+          mountPath: "/mnt/secrets-store"
+          readOnly: true
         imagePullPolicy: Always
         livenessProbe:
           failureThreshold: 3
           httpGet:
             path: /actuator/health
-            port: 8761
+            port: 8080
             scheme: HTTP
           initialDelaySeconds: 180
           successThreshold: 1
@@ -48,12 +66,12 @@ spec:
           failureThreshold: 3
           httpGet:
             path: /actuator/health
-            port: 8761
+            port: 8080
             scheme: HTTP
           initialDelaySeconds: 10
           successThreshold: 1
         ports:
-        - containerPort: 8761
+        - containerPort: 8080
           name: http
           protocol: TCP
         - containerPort: 9779
@@ -64,18 +82,20 @@ spec:
           protocol: TCP
         securityContext:
           privileged: false
+   
+   
 ---
 apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: discovery-server
-  name: discovery-server
+    app: messaging-emulator
+  name: messaging-emulator
 spec:
   ports:
-  - port: 8761
+  - port: 8080
     protocol: TCP
-    targetPort: 8761
+    targetPort: 8080
   selector:
-    app: discovery-server
-  type: ClusterIP
+    app: messaging-emulator
+  type: LoadBalancer

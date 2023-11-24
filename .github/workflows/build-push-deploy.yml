@@ -30,7 +30,8 @@ jobs:
                         "spring-petclinic-visits-service",
                         "spring-petclinic-api-gateway",
                         "spring-petclinic-admin-server",
-                        "spring-petclinic-config-server"
+                        "spring-petclinic-config-server",
+                        "spring-petclinic-messaging-emulator"
                      ] 
               }
     steps:
@@ -68,7 +69,8 @@ jobs:
                         "spring-petclinic-vets-service",
                         "spring-petclinic-visits-service",
                         "spring-petclinic-api-gateway",
-                        "spring-petclinic-admin-server"
+                        "spring-petclinic-admin-server",
+                        "spring-petclinic-messaging-emulator"
                      ] 
               }
     steps:
