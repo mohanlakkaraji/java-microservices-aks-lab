@@ -685,3 +685,24 @@ spec:
     tenantId: $ADTENANT
 EOF
 ```
+
+Get svc ip for the messaging emulator:
+
+```bash
+export MESSAGING_EMULATOR_SVCIP=$(kubectl get svc messaging-emulator -n $NAMESPACE -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+```
+
+Test sending a message:
+
+```bash
+echo $MESSAGING_EMULATOR_SVCIP:8080
+```
+
+Make the visits service to consume the messages. First, add the dependency in the pom.xml:
+
+```bash
+        <dependency>
+          <groupId>com.azure.spring</groupId>
+          <artifactId>spring-cloud-azure-starter-servicebus-jms</artifactId>
+        </dependency>
+```
