@@ -905,3 +905,157 @@ Add the enviroment variables from KeyVault in the deployment of the application.
           mountPath: "/mnt/secrets-store"
           readOnly: true
 ```
+
+Push the changes to let the deployment finish.
+
+### Lab 6
+
+#### Azure Event Hubs for sending events between microservices
+
+Create Event Hubs namespace:
+
+```bash
+EVENTHUBS_NAMESPACE=evhns-$APPNAME-$UNIQUEID
+
+az eventhubs namespace create \
+  --resource-group $RESOURCE_GROUP \
+  --name $EVENTHUBS_NAMESPACE \
+  --location $LOCATION
+```
+
+Create an event hub:
+
+```bash
+EVENTHUB_NAME=telemetry
+
+az eventhubs eventhub create \
+  --name $EVENTHUB_NAME \
+  --resource-group $RESOURCE_GROUP \
+  --namespace-name $EVENTHUBS_NAMESPACE
+```
+
+Assigned role to the user assigned identity (used by the workload identity):
+
+```bash
+az eventhubs namespace show --name $EVENTHUBS_NAMESPACE --resource-group $RESOURCE_GROUP --query id -o tsv
+
+EVENTHUB_ID=$(az eventhubs namespace show --name $EVENTHUBS_NAMESPACE --resource-group $RESOURCE_GROUP --query id -o tsv)
+echo $EVENTHUB_ID
+
+echo $USER_ASSIGNED_CLIENT_ID
+az role assignment create --assignee $USER_ASSIGNED_CLIENT_ID --role 'Azure Event Hubs Data Owner' --scope $EVENTHUB_ID
+```
+
+#### Modify customer service to send events
+
+Add dependency to customer service pom.xml:
+
+```bash
+    <dependency>
+      <groupId>com.azure.spring</groupId>
+      <artifactId>spring-cloud-azure-stream-binder-eventhubs</artifactId>
+    </dependency>
+```
+
+Replace the CustomerServiceApplication class with the following:
+
+```java
+package org.springframework.samples.petclinic.customers;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+
+import org.springframework.integration.annotation.ServiceActivator;
+import org.springframework.messaging.Message;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * @author Maciej Szarlinski
+ */
+@EnableDiscoveryClient
+@SpringBootApplication
+public class CustomersServiceApplication {
+
+ private static final Logger LOGGER = LoggerFactory.getLogger(CustomersServiceApplication.class);
+
+ public static void main(String[] args) {
+    SpringApplication.run(CustomersServiceApplication.class, args);
+ }
+
+ @ServiceActivator(inputChannel = "telemetry.errors")
+    public void producerError(Message<?> message) {
+        LOGGER.error("Handling Producer ERROR: " + message);
+    }
+}
+```
+
+Add the ManualProducerConfiguration class with the following:
+
+```java
+package org.springframework.samples.petclinic.customers.config;
+
+
+import com.azure.spring.messaging.eventhubs.support.EventHubsHeaders;
+import com.azure.spring.messaging.AzureHeaders;
+import com.azure.spring.messaging.checkpoint.Checkpointer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+import org.springframework.messaging.Message;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Sinks;
+
+import java.util.function.Consumer;
+import java.util.function.Supplier;
+
+@Configuration
+public class ManualProducerConfiguration {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ManualProducerConfiguration.class);
+
+    @Bean
+    public Sinks.Many<Message<String>> many() {
+        return Sinks.many().unicast().onBackpressureBuffer();
+    }
+
+    @Bean
+    public Supplier<Flux<Message<String>>> supply(Sinks.Many<Message<String>> many) {
+        return () -> many.asFlux()
+                         .doOnNext(m -> LOGGER.info("Manually sending message {}", m))
+                         .doOnError(t -> LOGGER.error("Error encountered", t));
+    }
+}
+```
+
+Add the configuration snnipet to the customer service application.yaml
+
+```bash
+  cloud:
+    function: supply;      
+```
+
+And also, for the config repository, add:
+
+```yaml
+  cloud:
+    stream: 
+      bindings:
+        supply-out-0:
+          destination: telemetry
+      binders:
+        eventhub:
+          type: eventhubs
+          default-candidate: true
+          environment:
+            spring:
+              cloud:
+                azure:
+                  eventhubs:
+                    namespace: <your event hub namespace>
+```
+
+Push changes in both repos (config and code) and wait for the deployment to finish.
