@@ -1059,3 +1059,167 @@ And also, for the config repository, add:
 ```
 
 Push changes in both repos (config and code) and wait for the deployment to finish.
+
+#### Add consumer for the events
+
+Create a Storage Account to keep track of the offsets:
+
+```bash
+STORAGE_ACCOUNT_NAME=stg$APPNAME$UNIQUEID
+echo $STORAGE_ACCOUNT_NAME
+az storage account create --name $STORAGE_ACCOUNT_NAME --resource-group $RESOURCE_GROUP --location $LOCATION --sku "Standard_LRS"  --allow-blob-public-access
+az storage account show --name $STORAGE_ACCOUNT_NAME --resource-group $RESOURCE_GROUP --query id -o tsv
+STORAGE_ACCOUNT_ID=$(az storage account show --name $STORAGE_ACCOUNT_NAME --resource-group $RESOURCE_GROUP --query id -o tsv)
+echo $STORAGE_ACCOUNT_ID
+
+STORAGE_CONTAINER=eventhubs-binder
+az storage container create --name $STORAGE_CONTAINER --account-name $STORAGE_ACCOUNT_NAME --public-access container --auth-mode login
+```	
+
+Add privileges to the user assigned identity (used by the workload identity):
+
+```bash
+az role assignment create --assignee $USER_ASSIGNED_CLIENT_ID --role 'Storage Account Contributor' --scope $STORAGE_ACCOUNT_ID
+az role assignment create --assignee $USER_ASSIGNED_CLIENT_ID --role 'Storage Blob Data Contributor' --scope $STORAGE_ACCOUNT_ID
+az role assignment create --assignee $USER_ASSIGNED_CLIENT_ID --role 'Storage Blob Data Owner' --scope $STORAGE_ACCOUNT_ID/containers/$STORAGE_CONTAINER
+```
+
+Modify the application.yaml of the config repo to set up this checkpoint store:
+
+```bash
+new binding:
+...
+      bindings:
+        consume-in-0:
+          destination: telemetry
+          group: $Default
+...
+checkpoint store:
+....
+              cloud:
+                azure:
+                  eventhubs:
+                    namespace: <your-event-hub-namespace>
+                    processor:
+                      checkpoint-store:
+                        container-name: eventhubs-binder
+                        account-name: <your-storage-account-name>      
+      eventhubs:
+        bindings:
+          consume-in-0:
+            consumer:
+              checkpoint:
+                mode: MANUAL    
+```
+
+Add the following dependency to the pom.xml of the vets service:
+
+```bash
+ <dependency>
+   <groupId>com.azure.spring</groupId>
+   <artifactId>spring-cloud-azure-stream-binder-eventhubs</artifactId>
+ </dependency>  
+```
+
+Replace the VetsServiceApplication class with the following:
+
+```java
+package org.springframework.samples.petclinic.vets;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.cloud.client.discovery.EnableDiscoveryClient;
+import org.springframework.samples.petclinic.vets.system.VetsProperties;
+
+import org.springframework.integration.annotation.ServiceActivator;
+import org.springframework.messaging.Message;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * @author Maciej Szarlinski
+ */
+@EnableDiscoveryClient
+@SpringBootApplication
+@EnableConfigurationProperties(VetsProperties.class)
+public class VetsServiceApplication {
+
+   private static final Logger LOGGER = LoggerFactory.getLogger(VetsServiceApplication.class);
+
+   public static void main(String[] args) {
+      SpringApplication.run(VetsServiceApplication.class, args);
+   }
+
+   @ServiceActivator(inputChannel = "telemetry.$Default.errors")
+    public void consumerError(Message<?> message) {
+        LOGGER.error("Handling consumer ERROR: " + message);
+    }
+}
+```
+
+Create a new class under a  new package called services:
+    
+```java
+package org.springframework.samples.petclinic.vets.services;
+
+
+import com.azure.spring.messaging.eventhubs.support.EventHubsHeaders;
+import com.azure.spring.messaging.checkpoint.Checkpointer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
+import org.springframework.messaging.Message;
+import org.springframework.messaging.support.MessageBuilder;
+import org.springframework.samples.petclinic.vets.VetsServiceApplication;
+import org.springframework.stereotype.Service;
+
+import java.util.function.Consumer;
+
+import static com.azure.spring.messaging.AzureHeaders.CHECKPOINTER;
+
+@Configuration
+public class EventHubListener {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(VetsServiceApplication.class);
+
+    private int i = 0;
+
+    @Bean
+    public Consumer<Message<String>> consume() {
+        return message -> {
+            Checkpointer checkpointer = (Checkpointer) message.getHeaders().get(CHECKPOINTER);
+            LOGGER.info("New message received: '{}', partition key: {}, sequence number: {}, offset: {}, enqueued time: {}",
+                    message.getPayload(),
+                    message.getHeaders().get(EventHubsHeaders.PARTITION_KEY),
+                    message.getHeaders().get(EventHubsHeaders.SEQUENCE_NUMBER),
+                    message.getHeaders().get(EventHubsHeaders.OFFSET),
+                    message.getHeaders().get(EventHubsHeaders.ENQUEUED_TIME)
+            );
+
+            checkpointer.success()
+                    .doOnSuccess(success -> LOGGER.info("Message '{}' successfully checkpointed", message.getPayload()))
+                    .doOnError(error -> LOGGER.error("Exception found", error))
+                    .block();
+        };
+    }
+}
+```
+
+Modify the local configuration of the vets service:
+
+```bash
+ spring:
+   application:
+     name: vets-service
+   config:
+     import: optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888/}
+   cache:
+     cache-names: vets
+   profiles:
+     active: production
+   cloud:
+     function: consume; 
+```	
