@@ -115,7 +115,7 @@ To get started follow the below step by step instructions:
 {: .note }
 > To install Apache Maven, extract the content of the .zip file by running `unzip apache-maven-3.8.5-bin.zip`. Next, add the path to the bin directory of the extracted content to the `PATH` environment variable. Assuming that you extracted the content directly into your home directory, you could accomplish this by running the following command from the Git Bash shell: `export PATH=~/apache-maven-3.8.5/bin:$PATH`.
 
-- Java 17 and the Java Development Kit (JDK) available from [JDK downloads](https://aka.ms/download-jdk/microsoft-jdk-17.0.5-windows-x64.msi)
+- Java 17 and the Java Development Kit (JDK) from [Microsoft Build of OpenJDK](https://openjdk.microsoft.com). [Download Windows MSI for JDK 17](https://aka.ms/download-jdk/microsoft-jdk-17-windows-x64.msi)
 
 {: .note }
 > To install JDK on Windows, follow the instructions provided in [JDK Installation Guide](https://learn.microsoft.com/en-us/java/openjdk/install#install-on-windows). Make sure to use the `FeatureJavaHome` feature during the install to update the `JAVA_HOME` environment variable.
